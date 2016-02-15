@@ -60,7 +60,7 @@
 	.AUTHOR
 		James Hammonds, @jameswh3
         Jeff Border, @jeffbor
-		The web part inventory section is mostly borrowed from Joe Rodgers
+		The web part inventory section is mostly borrowed from Joe Rodgers.
 	.getStarted
 		To run the full inventory, load this script in PowerShell, then enter: Run-FullInventory -DestinationFolder "e:\temp" -LogFilePrefix "YourFarm_"
 		Just make sure that the destination folder (and drive) has enough space for the log files (gigs in some cases), and that your LogFilePrefix is appropriate
@@ -108,7 +108,7 @@ function Inventory-SPFarm {
 		$getContentDBName = [Microsoft.SharePoint.Administration.SPContentDatabase].GetMethod("get_Name")
 		$getContentDBServerName = [Microsoft.SharePoint.Administration.SPContentDatabase].GetMethod("get_Server") 
 		$farm = [Microsoft.SharePoint.Administration.SPFarm]::Local
-		Write-Host "Inventorying $($farm.Name)..." -ForegroundColor DarkYellow
+		Write-Host "Inventorying farm $($farm.Name)..." -ForegroundColor DarkGray
 	} #BEGIN
 	Process {
 		if ($InventoryFarmFeatures) {
@@ -139,7 +139,6 @@ function Inventory-SPFarm {
 				$InventoryListViews -or 
 				$InventoryWebParts
 			) { 
-			Write-Host "  Inventorying Web Applications in $($farm.Name)..." -ForegroundColor DarkCyan
 			Inventory-SPWebApplications `
                 -ContentService $ContentService `
                 -LogFilePrefix $LogFilePrefix `
@@ -163,7 +162,7 @@ function Inventory-SPFarm {
 		} #if inventorywebapplications or child items
 	}#PROCESS
 	End {
-        Write-Host "Inventory complete." -ForegroundColor DarkYellow
+        Write-Host "Inventory of farm $($farm.Name) complete." -ForegroundColor DarkGray
     } #END
 }
 
@@ -174,7 +173,9 @@ function Inventory-SPFarmSolutions {
 		[Parameter(Mandatory=$true)]$logfilename
 	) #param
 	BEGIN {
-		Write-Host "  Inventorying Solutions in $($farm.Name)..." -ForegroundColor DarkCyan
+		$Area = "FarmSolution"
+		$now = Get-Date
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name)..." -ForegroundColor DarkCyan
 		$solutions = $farm.Solutions
 		if (-not (test-path $logfilename)) {
 			$row = '"SoulutionId","SolutionDisplayName"' 
@@ -182,12 +183,16 @@ function Inventory-SPFarmSolutions {
 		}
 	} #BEGIN
 	PROCESS {
+		$counter = 0
 		foreach ($solution in $solutions) { 
 				$row='"'+$solution.ID+'","'+$solution.DisplayName+'"'
 				$row | Out-File $logfilename -append 
+				$counter++
 			} #foreach solution
 	} #PROCESS
-	END {} #END
+	END {
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete.  $counter $Area(s) inventoried." -ForegroundColor DarkCyan
+	} #END
 }
 
 function Inventory-SPFarmFeatures {
@@ -198,7 +203,8 @@ function Inventory-SPFarmFeatures {
 	) #param
 	BEGIN {
         $now=get-date
-		Write-Host "  Inventorying Farm Features in $($farm.Name)..." -ForegroundColor DarkCyan 
+		$Area = "FarmFeature"
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name)..." -ForegroundColor DarkCyan
 		$featuredefs = $farm.FeatureDefinitions
 		if (-not (test-path $logfilename)) {
 			$row = '"FeatureId","FeatureDisplayName","FeatureScope","FeatureTypeName","SolutionId","FeatureTitle","ScriptRunDate"'
@@ -206,13 +212,17 @@ function Inventory-SPFarmFeatures {
 		}
 	} #BEGIN
 	PROCESS {
+		$counter = 0
 		foreach ($featuredef in $featuredefs) {
 				#TODO***********************************************resolve TypeName to something more descriptive
 				$row='"'+$featuredef.ID+'","'+$featuredef.DisplayName+'","'+$featuredef.Scope+'","'+$featuredef.TypeName+'","'+$featuredef.SolutionId+'","'+$featuredef.Title+'","'+$now+'"'
 				$row | Out-File  $logfilename -append 
+				$counter++
 			}  #foreach featuredef
 	} #PROCESS
-	END {} #END
+	END {
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete.  $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
+	} #END
 }
 
 function Inventory-SPWebTemplates {
@@ -223,10 +233,13 @@ function Inventory-SPWebTemplates {
         [Parameter(Mandatory=$true)][string]$DestinationFolder
 	) #param
 	BEGIN {
-		$templateFiles=get-childitem "C:\Program Files\Common Files\Microsoft Shared\Web Server Extensions\$farmVersion\TEMPLATE\$lcid\XML" -filter "webtemp*.xml"
-		$Area="WebTemplates"
+		$Area="WebTemplate"
         $now=get-date
-		Write-Host "  Inventorying Web Templates..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name)..." -ForegroundColor DarkCyan 
+		
+		# Rewrite following to survive non-standard configurations
+		$templateFiles=get-childitem "C:\Program Files\Common Files\Microsoft Shared\Web Server Extensions\$farmVersion\TEMPLATE\$lcid\XML" -filter "webtemp*.xml"
+
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "WebTemplates.csv")
 		if (-not (test-path $logfilename)) {
 			$row = '"TemplateName","TemplateID","TemplateFileName"' 
@@ -234,21 +247,23 @@ function Inventory-SPWebTemplates {
 		}
 	} #begin
 	PROCESS {
+		$counter = 0
 		foreach ($tf in $templateFiles) {
 			$fileName=$tf.Name
-            WRITE-HOST "Processing $($tf.Name)..." -ForegroundColor DarkCyan
+            write-host "    Processing $Area file $($tf.Name)..." -ForegroundColor DarkYellow
 			[xml]$xml=(get-content $tf.fullname)
 			$templates=$xml.Templates.template
 			foreach ($t in $templates) {
-				write-host "  $($t.Name)" -ForegroundColor DarkGreen
+				write-host "      $($t.Name)" -ForegroundColor DarkYellow
 				$row=''
 				$row='"'+$t.Name+'","'+$t.id+'","'+$fileName+'"'
 				$row | Out-File $logfilename -append
+				$counter++
 			}
 		}
 	} #process
 	END {
-	
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete.  $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
 	} #end
 }
 
@@ -276,7 +291,9 @@ function Inventory-SPWebApplications  {
 		[switch]$InventoryWebParts
 	) #param
 	BEGIN { 
+		$Area="WebApp"
         $now=get-date
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name)..." -ForegroundColor DarkCyan 
 		[Microsoft.SharePoint.Administration.SPWebApplicationCollection]$waColl = $ContentService.WebApplications;
 		$webApps=$waColl | where-object {$_.IsAdministrationWebApplication -eq $FALSE}
 		#set up logfile
@@ -287,10 +304,10 @@ function Inventory-SPWebApplications  {
 		}
 	} #BEGIN
 	PROCESS {
-		$Area="Web App"
+		$counter = 0
 		foreach ($wa in $webApps) {
 			try {
-				Write-Host "    Inventorying Web Application $($wa.alternateurls[0].IncomingUrl)..." -ForegroundColor DarkCyan
+				Write-Host "    Inventorying $Area $($wa.alternateurls[0].IncomingUrl)..." -ForegroundColor DarkYellow
 				$Location=$wa.Url
                 #$wa | get-member | out-gridview
 				$row = '"'+$wa.alternateurls[0].IncomingUrl+'","'+$wa.Name+'","'+$($wa.farm.Name)+'","'+$now+'"'
@@ -332,13 +349,16 @@ function Inventory-SPWebApplications  {
                         -InventoryWebParts:$InventoryWebParts  `
                         -InventoryWebSize:$InventoryWebSize
 				}
+				$counter++
 			} #try
 			catch {
 				Record-Error $Location $Area $error[0] $LogFilePrefix $DestinationFolder
 			} #catch
 		} #foreach webapp
 	} #PROCESS
-	END{} #END
+	END{
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete.  $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
+	} #END
 }
 
 function Inventory-SPSiteCollections {
@@ -364,6 +384,7 @@ function Inventory-SPSiteCollections {
 		[switch]$InventoryWebParts
 	) #param
 	BEGIN { 
+		$Area="Site Collection"
         $now=get-date
 		$getContentDBName = [Microsoft.SharePoint.Administration.SPContentDatabase].getmethod("get_Name")
 		$getContentDBServerName = [Microsoft.SharePoint.Administration.SPContentDatabase].getmethod("get_Server")
@@ -373,15 +394,15 @@ function Inventory-SPSiteCollections {
 			$row = '"Site","ContentDB","ContentDbServer","ScriptRunDate","LastSiteContentModified","SiteGUID","Storage","Visits"'
 			$row | Out-File $logfilename
 		}
-		$Area="Site Collection"
 		$sites=$wa.Sites
-		Write-Host "      Inventorying Site Collections in $($wa.alternateurls[0].IncomingUrl)..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $Area in $($wa.alternateurls[0].IncomingUrl)..." -ForegroundColor DarkCyan
 	} #begin
 	PROCESS {
+		$counter = 0
 		foreach ($site in $sites) {
 			$Location=$site.Url
 			try {
-				Write-Host "        Inventorying $($site.url)..." -ForegroundColor DarkCyan
+				Write-Host "        Inventorying $Area $($site.url)..." -ForegroundColor DarkCyan
 				$contentDb='' 
 				$contentDb = $getContentDBName.Invoke($site.ContentDatabase,"instance,public", $null, $null, $null)
 				$contentDbServer = $getContentDBServerName.Invoke($site.ContentDatabase,"instance,public", $null, $null, $null)
@@ -426,6 +447,7 @@ function Inventory-SPSiteCollections {
                         -InventoryWebParts:$InventoryWebParts `
                         -InventoryWebSize:$InventoryWebSize
 				} #if InventorySiteCollectionFeatures
+				$counter++
 			} #try
 			catch {
 				Record-Error $Location $Area $error[0] $LogFilePrefix $DestinationFolder
@@ -435,7 +457,9 @@ function Inventory-SPSiteCollections {
 			} #finally
 		} #foreach site
 	} #process
-	END {} #end
+	END {
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete.  $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
+	} #end
  }
 
 function Inventory-SPSiteCollectionAdmins {
@@ -447,7 +471,7 @@ function Inventory-SPSiteCollectionAdmins {
 	) #param
 	BEGIN {
 		$Area="Site Collection Admins"
-		Write-Host "          Inventorying Site Collection Admins in $($Site.url)..." -ForegroundColor DarkCyan
+		Write-Host "    Inventorying $Area in $($Site.url)..." -ForegroundColor DarkCyan
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "SiteCollectionAdmins.csv")
 		if (-not (test-path $logfilename)) {
 			$row = '"Site","SiteAdmin","SiteID","ScriptRunDate"' 
@@ -456,12 +480,14 @@ function Inventory-SPSiteCollectionAdmins {
 		$siteAdmins=$site.RootWeb.SiteAdministrators
 	} #begin
 	PROCESS {
+		$counter = 0
 		foreach ($siteAdmin in $siteAdmins) { 
 			try {
 				$Location=$site.Url
 				$row='' 
 				$row='"'+$site.Url+'","'+$siteAdmin.LoginName+'","'+$now+'"'
 				$row | Out-File $logfilename -append
+				$counter++
 			}
 			catch {
 				Record-Error $Location $Area $error[0] $LogFilePrefix $DestinationFolder
@@ -470,7 +496,9 @@ function Inventory-SPSiteCollectionAdmins {
 			}
 		} #foreach site admin
 	} #process
-	END {} #end
+	END {
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete. $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
+	} #end
  }
  
 function Inventory-SPSiteCollectionFeatures {
@@ -481,9 +509,9 @@ function Inventory-SPSiteCollectionFeatures {
         [Parameter(Mandatory=$true)][string]$DestinationFolder
 	) #param
 	BEGIN {
-        $now=get-date
 		$Area="Site Collection Features"
-		Write-Host "          Inventorying Site Collection Features in $($Site.url)..." -ForegroundColor DarkCyan
+        $now=get-date
+		Write-Host "  Inventorying $Area in $($Site.url)..." -ForegroundColor DarkCyan
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "SiteCollectionFeatures.csv")
 		if (-not (test-path $logfilename)) {
 			$row = '"SiteCollection","WebUrl","ScriptRunDate","FeatureID","SearchedScope"'
@@ -492,12 +520,14 @@ function Inventory-SPSiteCollectionFeatures {
 		$features=$site.Features
 	} #begin
 	PROCESS {
+		$counter = 0
 		foreach ($feature in $features) { 
 			try {
 				$Location=$site.Url
 				$row='' 
 				$row='"'+$site.Url+'","NA","'+$now+'","'+$feature.DefinitionId+'","Site"'
 				$row | Out-File $logfilename -append
+				$counter++
 			}
 			catch {
 				Record-Error $Location $Area $error[0] $LogFilePrefix $DestinationFolder
@@ -506,7 +536,9 @@ function Inventory-SPSiteCollectionFeatures {
 			}
 		} #foreach site admin
 	} #process
-	END {} #end
+	END {
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete. $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
+} #end
  }
   
 function Inventory-SPWebs {
@@ -531,7 +563,7 @@ function Inventory-SPWebs {
 	BEGIN {
 		$Area="Web"
         $now=get-date
-		Write-Host "          Inventorying Webs in $($Site.url)..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $Area(s) in $Area $($Site.url)..." -ForegroundColor DarkCyan
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "Webs.csv")
 		if (-not (test-path $logfilename)) {
 			$row = '"SiteCollection","WebTemplate","WebTemplateID","WebUrl","WebTheme","WebIsRoot","WebLastItemModifiedDate","ScriptRunDate","WebGUID","SiteGUID","ParentWebGUID","WebSize","UIVersion"'
@@ -542,7 +574,7 @@ function Inventory-SPWebs {
 	PROCESS {
 		foreach ($web in $webs) {
 			try {
-				Write-Host "            Inventorying Web $($web.url)..." -ForegroundColor DarkCyan
+				Write-Host "      Inventorying site $($web.url)..." -ForegroundColor DarkCyan
 				$websize=$null
 				$Location=$web.Url
 				if ($InventoryWebSize) {
@@ -560,7 +592,7 @@ function Inventory-SPWebs {
 					$InventoryContentTypeWorkflowAssociations
 				) {
 					#todo look for wf associations at site content type level?
-					Write-Host "              Inventorying Content Types in Web $($web.url)..." -ForegroundColor DarkCyan
+					Write-Host "      Inventorying $Area(s) in $($web.url)..." -ForegroundColor DarkCyan
 					Inventory-ContentTypes -SPObject $web -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder -InventoryContentTypeWorkflowAssociations:$InventoryContentTypeWorkflowAssociations
 				} #if InventoryListcontentTypes
 				if (
@@ -601,6 +633,7 @@ function Inventory-SPWebs {
 		} #foreach web
 	} #process
 	END {
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete." -ForegroundColor DarkCyan 
 	} #end
  }
 
@@ -613,7 +646,7 @@ function Inventory-SPWebUniquePermissions {
 	)
 	BEGIN {
 		$Area="Site Groups"
-		Write-Host "              Inventorying Groups in $($web.url)..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $Area(s) in $($web.url)..." -ForegroundColor DarkCyan
 		$groups=$web.sitegroups
 		$users=$web.users
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "WebUniquePermissions.csv")
@@ -623,6 +656,7 @@ function Inventory-SPWebUniquePermissions {
 		}
 	} #begin
 	PROCESS {
+		$counter = 0
 		if ($web.HasUniquePerm) {
 			$Location=$web.Url
 			foreach ($group in $groups) {
@@ -640,6 +674,7 @@ function Inventory-SPWebUniquePermissions {
 						$row='"'+"Web"+'","'+$web.url+'","'+$web.id+'","'+$web.parentwebid+'","'+$groupName+'","'+$userName+'","'+$rolelist+'"'
 						$row | Out-File $logfilename -append
 					} #foreach groupmember
+					$counter++
 				} #try
 				catch {
 					Record-Error $Location $Area $error[0] $LogFilePrefix $DestinationFolder
@@ -657,6 +692,7 @@ function Inventory-SPWebUniquePermissions {
 					$row=''
 					$row='"'+"Web"+'","'+$web.url+'","'+$web.id+'","'+$web.parentwebid+'","'+$groupName+'","'+$userName+'","'+$rolelist+'"'
 					$row | Out-File $logfilename -append
+					$counter++
 				} #try
 				catch {
 					Record-Error $Location $Area $error[0] $LogFilePrefix $DestinationFolder
@@ -667,6 +703,7 @@ function Inventory-SPWebUniquePermissions {
 	} #process
 	END {
 		$web.dispose()
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete. $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
 	} #end
 }
 
@@ -681,7 +718,7 @@ function Inventory-SPListUniquePermissions {
 		$Area="List Unique Permissions"
 		$lists=$web.lists
 		$Location=$web.url
-		Write-Host "              Inventorying List, Item, and Folder Unique Permissions in $($web.url)..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $Area(s) in site $($web.url)..." -ForegroundColor DarkCyan
 	} #begin
 	PROCESS {
 		foreach ($list in $lists) {
@@ -712,7 +749,9 @@ function Inventory-SPListUniquePermissions {
 		Inventory-SPItemUniquePermissions -list $list -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
 		Inventory-SPFolderUniquePermissions -list $list -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
 	} #process
-	END {} #end
+	END {
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete." -ForegroundColor DarkCyan 
+	} #end
 }
 
 function Inventory-SPItemUniquePermissions {
@@ -726,6 +765,7 @@ function Inventory-SPItemUniquePermissions {
 		$Area="Item Unique Permissions"
 		$items=$list.items
 		$Location=$list.url
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name)..." -ForegroundColor DarkCyan 
 	} #begin
 	PROCESS {
 		foreach ($items in $items) {
@@ -751,7 +791,9 @@ function Inventory-SPItemUniquePermissions {
             } #catch
 		} #foreach item
 	} #process
-	END {} #end
+	END {
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete." -ForegroundColor DarkCyan 
+	} #end
 }
 
 function Inventory-SPFolderUniquePermissions {
@@ -762,6 +804,7 @@ function Inventory-SPFolderUniquePermissions {
         [Parameter(Mandatory=$true)][string]$DestinationFolder
 	) #param
 	BEGIN {
+		Write-Host "  Inventorying Folder Unique Permissions in farm $($farm.Name)..." -ForegroundColor DarkCyan 
 		$Location="Folder"
 		$folders=$list.folders
 	} #begin
@@ -784,7 +827,9 @@ function Inventory-SPFolderUniquePermissions {
 			} #if unique permissions
 		} #foreach folder
 	} #process
-	END {} #end
+	END {
+		Write-Host "  Inventorying Folder Unique Permissions in farm $($farm.Name) complete." -ForegroundColor DarkCyan 
+} #end
 }
 
 function Record-RoleDefinitionBindings {
@@ -838,7 +883,7 @@ function Inventory-SPLists {
 	BEGIN {
 		$Area="Lists"
         $now=get-date
-		Write-Host "              Inventorying Lists in $($web.url)..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $Area(s) in site $($web.url)..." -ForegroundColor DarkCyan
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "Lists.csv")
 		if (-not (test-path $logfilename)) {
 			#todo get systemlistproperty if possible
@@ -850,7 +895,7 @@ function Inventory-SPLists {
 	PROCESS {
 		foreach ($list in $lists) {
 			try {
-				write-host "                Inventorying $($list.title)..." -ForegroundColor DarkCyan
+				write-host "      Inventorying list $($list.title)..." -ForegroundColor DarkCyan
 				$thisListTitle=$list.title
                 $Location=($web.Url+$list.RootFolder)
 				$Pattern = '"'
@@ -870,7 +915,7 @@ function Inventory-SPLists {
 					$InventoryListContentTypes -or
 					$InventoryContentTypeWorkflowAssociations
 				) {
-					write-host "                  Inventorying Content Types in $($list.title)..." -ForegroundColor DarkCyan
+					write-host "        Inventorying Content Types in list $($list.title)..." -ForegroundColor DarkCyan
 					Inventory-ContentTypes -SPObject $list -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder -InventoryContentTypeWorkflowAssociations:$InventoryContentTypeWorkflowAssociations
 				} #if InventoryListcontentTypes
 			} #try
@@ -884,6 +929,7 @@ function Inventory-SPLists {
 	} #process
 	END {
 		$web.dispose()
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete." -ForegroundColor DarkCyan 
 	} #end
  }
 
@@ -898,7 +944,7 @@ function Inventory-SPListFields {
 		$Area="ListFields"
         $Location=($list.parentweb.Url+$list.RootFolder)
         $now=get-date
-		Write-Host "                  Inventorying fields in $($list.title)..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $Area(s) in $($list.title)..." -ForegroundColor DarkCyan
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "ListFields.csv")
 		if (-not (test-path $logfilename)) {
 			$row = '"FieldName","ListDefaultUrl","ViewUrl","WebUrl","FieldType","ListID"' 
@@ -924,7 +970,7 @@ function Inventory-SPListFields {
 		} #foreach web
 	} #process
 	END {
-	
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete." -ForegroundColor DarkCyan 
 	} #end
  }
 
@@ -939,7 +985,7 @@ function Inventory-SPListViews {
 		$Area="ListViews"
         $Location=($web.Url+$list.RootFolder)
         $now=get-date
-		Write-Host "                  Inventorying views in $($list.title)..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $ListViews in $($list.title)..." -ForegroundColor DarkCyan
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "ListViews.csv")
 		if (-not (test-path $logfilename)) {
 			$row = '"ViewName","ListDefaultUrl","ViewUrl","WebUrl","ViewRowlimit","ViewPaged","ViewType","ListID"' 
@@ -969,7 +1015,7 @@ function Inventory-SPListViews {
 		} #foreach web
 	} #process
 	END {
-	
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete." -ForegroundColor DarkCyan 	
 	} #end
  }
  
@@ -981,10 +1027,10 @@ function Inventory-SPSiteFeatures {
         [Parameter(Mandatory=$true)][string]$DestinationFolder
 	) #param
 	BEGIN {
-        $now=get-date
 		$Area="Site Features"
+        $now=get-date
 		$Location=$web.url
-		Write-Host "              Inventorying Site Features in $($web.url)..." -ForegroundColor DarkCyan
+		Write-Host "  Inventorying $Area(s) in $Location..." -ForegroundColor DarkCyan
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "SiteFeatures.csv")
 		if (-not (test-path $logfilename)) {
 			$row = '"SiteCollection","WebUrl","ScriptRunDate","FeatureID","SearchedScope"'
@@ -1007,19 +1053,25 @@ function Inventory-SPSiteFeatures {
 		} #foreach site admin
 	} #process
 	END {
-		#$web.dispose()
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name)..." -ForegroundColor DarkCyan 
 	} #end
  }
  
 function Record-Error($Location, $Area, $Err, $LogFilePrefix, $DestinationFolder) {
 	$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "ErrorFile.txt")
-    write-host "error recorded" -ForegroundColor Red
+    write-host "ERROR RECORDED:" -ForegroundColor Red
+
 	$row="Location:"+$Location
 	$row | Out-File $logfilename -append
+	Write-Host $row -ForegroundColor Red
+
 	$row="Area:"+$Area
 	$row | Out-File $logfilename -append
+	Write-Host $row -ForegroundColor Red
+
 	$row="Err:"+$Err
 	$row | Out-File $logfilename -append
+	Write-Host $row -ForegroundColor Red
 }
 
 function Inventory-SPFolders {
@@ -1031,12 +1083,13 @@ function Inventory-SPFolders {
     [Parameter(Mandatory=$true)][string]$DestinationFolder
     ) #Param
 	BEGIN {
+		Write-Host "  Inventorying Folders in farm $($farm.Name)..." -ForegroundColor DarkCyan 
 		$subfolders=$folder.SubFolders
 		$files=$folder.Files
         #$processFiles = (Get-command -name “Inventory-WebParts“ -CommandType Function).ScriptBlock
 	} #begin
 	PROCESS {
-		#Write-Host "                  Checking Folder $($folder.Name)"
+		#Write-Host "    Checking Folder $($folder.Name)"
 		foreach($subFolder in $subfolders) {
 			Inventory-SPFolders `
                 -folder $subFolder `
@@ -1045,11 +1098,13 @@ function Inventory-SPFolders {
                 -DestinationFolder $DestinationFolder
 		}
 		foreach($file in $files) {
-            #Write-Host "                    Invoking $fileprocessfunction for $($file.Name)"
+            #Write-Host "    Invoking $fileprocessfunction for $($file.Name)"
 			&$fileprocessfunction -file $file -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
 		} #foreach file
 	} #process
-	END {} #end
+	END {
+		Write-Host "  Inventorying Folders in farm $($farm.Name) complete." -ForegroundColor DarkCyan 
+} #end
 }
 
 function Inventory-WebParts {
@@ -1060,6 +1115,7 @@ function Inventory-WebParts {
         [Parameter(Mandatory=$true)][string]$DestinationFolder
     )
 	BEGIN {
+		Write-Host "  Inventorying Web Parts in farm $($farm.Name)..." -ForegroundColor DarkCyan 
 		$assembly = [System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SharePoint")
         $limitedSPWebPartManager = $assembly.GetType("Microsoft.SharePoint.WebPartPages.SPLimitedWebPartManager");
         $spWebPartManager = $assembly.GetType("Microsoft.SharePoint.WebPartPages.SPWebPartManager");
@@ -1141,6 +1197,7 @@ function Inventory-WebParts {
 		if ($limitedWPM) {
 			$limitedWPM.Dispose()
 		} #if limitedwpm
+		Write-Host "  Inventorying Web Parts in farm $($farm.Name) complete." -ForegroundColor DarkCyan 
 	} #end
 }
 
@@ -1150,7 +1207,7 @@ function Get-SPWebSize {
         $indludesubwebs
     )
 	BEGIN {
-		write-host "              Calculating Web Size for $($web.Url)..." -ForegroundColor DarkCyan
+		write-host "    Calculating Web Size for site $($web.Url)..." -ForegroundColor DarkCyan
         [long]$total = 0;
 		$folders=$web.Folders
 	} #begin
@@ -1194,7 +1251,9 @@ function Inventory-ContentTypes {
 		[switch]$InventoryContentTypeWorkflowAssociations
     )
 	BEGIN {
-		$Area="Content Types"
+		# Name property may die for some objects?
+		$Area="Content Type"
+		write-host "  Inventorying $Area(s) in $($SPObject.Title)..." -ForegroundColor DarkCyan
 		$Location=$null
 		if ($SPObject.Url) {
 			$Location=$SPObject.Url
@@ -1210,15 +1269,17 @@ function Inventory-ContentTypes {
 		$objectType=$SPObject.gettype()
 	} #begin
 	PROCESS {
+		$counter = 0
 		foreach ($contentType in $contentTypes) {
 			try {
-				#Write-Host "                    Logging $($contentType.Name)"
+				#Write-Host "    Logging $($contentType.Name)"
 				$row=''
 				$row='"'+$objectType+'","'+($contentType.Name)+'","'+($contentType.id)+'","'+($contentType.parent.id)+'","'+($contentType.parentweb.id)+'","'+($contentType.Hiddden)+'","'+($contentType.Group)+'","'+($contentType.Scope)+'"'
 				$row | Out-File $logfilename -append
 				if ($InventoryContentTypeWorkflowAssociations) {
 					Inventory-WorkflowAssociations -spobject $contentType -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
 				} #if InventoryContentTypeWorkflowAssociations
+				$counter++
 			} #try
 			catch {
 				Record-Error $Location $Area $error[0] $LogFilePrefix $DestinationFolder
@@ -1226,7 +1287,9 @@ function Inventory-ContentTypes {
 		} #foreach content type
 		
 	} #process
-	END {} #end
+	END {
+		Write-Host "  Inventorying $Area(s) in $($SPObject.Title) complete.  $counter $Area(s) inventoried." -ForegroundColor DarkCyan
+	} #end
 }
 
 function Inventory-WorkflowAssociations {
@@ -1237,6 +1300,9 @@ function Inventory-WorkflowAssociations {
         [Parameter(Mandatory=$true)][string]$DestinationFolder
     )
 	BEGIN {
+		$Area = "Workflow Association"
+		$now = Get-Date
+		write-host "  Inventorying $Area(s) for $($SPObject.Title)..." -ForegroundColor DarkCyan
 		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + "WorkflowAssociations.csv")
 		if (-not (test-path $logfilename)) {
 			$row = '"ObjectType","WorkflowAssociationName","WorkflowAssociationID","ParentAssociationId","ParentContentType","ParentListId","ParentSiteId","ParentWebId","BaseTemplate","Enabled","RunningInstances","WFAParentWebUrl"'
@@ -1246,16 +1312,20 @@ function Inventory-WorkflowAssociations {
 		$objectType=$SPObject.gettype()
 	} #begin
 	PROCESS {
+		$counter = 0
 		if ($WorkflowAssociations) {
 			foreach ($wfa in $WorkflowAssociations) {
-				Write-Host "                    Logging $($wfa.Name)......" -ForegroundColor DarkCyan
+				Write-Host "    Logging $($wfa.Name)......" -ForegroundColor DarkCyan
 				$row=''
 				$row='"'+$objectType+'","'+$wfa.Name+'","'+$wfa.id+'","'+$wfa.ParentAssociationId+'","'+$wfa.ParentContentType+'","'+$wfa.ParentList.Id+'","'+$wfa.ParentSite.Id+'","'+$wfa.ParentWeb.Id+'","'+$wfa.BaseTemplate+'","'+$wfa.Enabled+'","'+$wfa.RunningInstances+'","'+$wfa.parentweb.url+'"'
 				$row | Out-File $logfilename -append
+				$counter++
 			} #foreach workflow associations
 		} #if WorkflowAssociations
 	} #process
-	END {} #end
+	END {
+		write-host "  Inventorying $Area(s) for $($SPObject.Title) complete. $counter $Area(s) inventoried." -ForegroundColor DarkCyan
+	} #end
 }
 
 function Run-FullInventory {
