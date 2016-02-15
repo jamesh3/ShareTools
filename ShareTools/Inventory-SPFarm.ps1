@@ -99,6 +99,7 @@ function Inventory-SPFarm {
 		[switch]$InventoryListContentTypes,
 		[switch]$InventoryWebParts,
 		[switch]$InventoryContentTypeWorkflowAssociations,
+		[switch]$InventoryAlternateAccessMappings,
 		[Parameter(Mandatory=$true)][string]$LogFilePrefix,
 		[Parameter(Mandatory=$true)][string]$DestinationFolder
 	)
@@ -121,6 +122,9 @@ function Inventory-SPFarm {
 		if ($InventoryWebTemplates) {
 			Inventory-SPWebTemplates -FarmVersion $farm.buildversion.major -lcid "1033" -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
 		} #if InventoryWebTemplates
+		if ($InventoryAlternateAccessMappings) {
+			Inventory-AlternateAccessMappings -farm $farm -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
+		} #if inventoryfarmfeatures
 		if (
 				$InventoryWebApplications -or 
 				$InventorySiteCollections -or 
@@ -1360,5 +1364,43 @@ function Run-FullInventory {
 		-InventoryContentDatabases `
 		-InventoryListFields `
 		-InventoryListViews `
-		-InventoryWebParts
+		-InventoryWebParts `
+		-InventoryAlternateAccessMappings
+}
+
+function Inventory-AlternateAccessMappings {
+	[cmdletbinding()]
+    param(
+		[Parameter(Mandatory=$true)]$farm,
+        [Parameter(Mandatory=$true)]$LogFilePrefix,
+        [Parameter(Mandatory=$true)][string]$DestinationFolder
+    )
+	BEGIN {
+		$Area = "AlternateAccessMapping"
+		$now = Get-Date
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name)..." -ForegroundColor DarkCyan 
+
+		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + $Area + ".csv")
+		if (-not (test-path $logfilename)) {
+			$row = '"WebAppName","WebAppDisplayName","WebAppStatus","WebAppVersion","IncomingUrl","Uri","UrlZone"'
+			$row | Out-File $logfilename
+		}
+
+	} #begin
+	PROCESS {
+		$counter = 0
+		foreach($aamCol in $farm.AlternateUrlCollections) {
+			foreach($aam in $aamCol){
+				$row=''
+				$row='"'+$aamCol.Name+'","'+$aamCol.DisplayName+'","'+$aamCol.Status+'","'+$aamCol.Version+'","'+$aam.IncomingUrl+'","'+$aam.Uri+'","'+$aam.UrlZone+'"'
+				$row | Out-File $logfilename -append
+
+				$counter++
+			} #aam
+		} #aamCol
+	} #process
+	END {
+
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete. $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
+	} #end
 }
