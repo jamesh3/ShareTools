@@ -48,10 +48,16 @@
         Gather information about web parts
 	.PARAMETER InventoryContentTypeWorkflowAssociations
         Gather information about workflows associated to content types
+	.PARAMETER InventoryAlternateAccessMappings
+		Gather information about AAMs for each web application
+	.PARAMETER InventoryFarmProperties
+		Gather detailed information and properties about the farm itself
+	.PARAMETER InventoryFarmServers
+		Gather information about the servers in the farm
 	.PARAMETER LogFilePrefix
         Prefix for each output file (required)
 	.PARAMETER DestinationFolder
-        Path to folder in which output files will be created (required)
+        Path to folder (w/o trailing slash) in which output files will be created (required)
 
     .INPUTS
         See parameters.
@@ -101,6 +107,7 @@ function Inventory-SPFarm {
 		[switch]$InventoryContentTypeWorkflowAssociations,
 		[switch]$InventoryAlternateAccessMappings,
 		[switch]$InventoryFarmProperties,
+		[switch]$InventoryFarmServers,
 		[Parameter(Mandatory=$true)][string]$LogFilePrefix,
 		[Parameter(Mandatory=$true)][string]$DestinationFolder
 	)
@@ -128,6 +135,9 @@ function Inventory-SPFarm {
 		} #if inventoryfarmfeatures
 		if ($InventoryFarmProperties) {
 			Inventory-FarmProperties -farm $farm -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
+		} #if inventoryfarmfeatures
+		if ($InventoryFarmServers) {
+			Inventory-FarmServers -farm $farm -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
 		} #if inventoryfarmfeatures
 		if (
 				$InventoryWebApplications -or 
@@ -1548,5 +1558,35 @@ function Inventory-FarmProperties {
 	END {
 
 		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete. $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
+	} #end
+}
+
+function Inventory-FarmServers {
+	[cmdletbinding()]
+    param(
+		[Parameter(Mandatory=$true)]$farm,
+        [Parameter(Mandatory=$true)]$LogFilePrefix,
+        [Parameter(Mandatory=$true)][string]$DestinationFolder
+    )
+	BEGIN {
+		$Area = "FarmServers"
+		$now = Get-Date
+		Write-Host "  Inventorying $Area in farm $($farm.Name)..." -ForegroundColor DarkCyan 
+
+		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + $Area + ".csv")
+		if (-not (test-path $logfilename)) {
+            # Init log file code here
+		}
+
+	} #begin
+	PROCESS {
+		# Let's do this the smart way using Export-CSV
+        $farm.Servers | select "Address","EncodedServerId","CacheHostApproachingThrottlingThresholdPercentage","Role","TypeName","CanUpgrade","IsBackwardsCompatible","NeedsUpgradeIncludeChildren","NeedsUpgrade","Name","DisplayName","Id","Status","Parent","Version","Farm" | Export-Csv -Path $logfilename -NoTypeInformation
+
+		$counter = $farm.Servers.Count
+	} #process
+	END {
+
+		Write-Host "  Inventorying $Area in farm $($farm.Name) complete. $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
 	} #end
 }
