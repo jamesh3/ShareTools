@@ -100,6 +100,7 @@ function Inventory-SPFarm {
 		[switch]$InventoryWebParts,
 		[switch]$InventoryContentTypeWorkflowAssociations,
 		[switch]$InventoryAlternateAccessMappings,
+		[switch]$InventoryFarmProperties,
 		[Parameter(Mandatory=$true)][string]$LogFilePrefix,
 		[Parameter(Mandatory=$true)][string]$DestinationFolder
 	)
@@ -124,6 +125,9 @@ function Inventory-SPFarm {
 		} #if InventoryWebTemplates
 		if ($InventoryAlternateAccessMappings) {
 			Inventory-AlternateAccessMappings -farm $farm -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
+		} #if inventoryfarmfeatures
+		if ($InventoryFarmProperties) {
+			Inventory-FarmProperties -farm $farm -LogFilePrefix $LogFilePrefix -DestinationFolder $DestinationFolder
 		} #if inventoryfarmfeatures
 		if (
 				$InventoryWebApplications -or 
@@ -1365,7 +1369,8 @@ function Run-FullInventory {
 		-InventoryListFields `
 		-InventoryListViews `
 		-InventoryWebParts `
-		-InventoryAlternateAccessMappings
+		-InventoryAlternateAccessMappings `
+		-InventoryFarmProperties
 }
 
 function Inventory-AlternateAccessMappings {
@@ -1398,6 +1403,147 @@ function Inventory-AlternateAccessMappings {
 				$counter++
 			} #aam
 		} #aamCol
+	} #process
+	END {
+
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name) complete. $counter $Area(s) inventoried." -ForegroundColor DarkCyan 
+	} #end
+}
+
+function Inventory-FarmProperties {
+	[cmdletbinding()]
+    param(
+		[Parameter(Mandatory=$true)]$farm,
+        [Parameter(Mandatory=$true)]$LogFilePrefix,
+        [Parameter(Mandatory=$true)][string]$DestinationFolder
+    )
+	BEGIN {
+		$Area = "FarmProperties"
+		$now = Get-Date
+		Write-Host "  Inventorying $Area(s) in farm $($farm.Name)..." -ForegroundColor DarkCyan 
+
+		$logfilename=($DestinationFolder + "\" + $LogFilePrefix + $Area + ".csv")
+		if (-not (test-path $logfilename)) {
+			$row = '"CanMigrate"' `
+				+ ',"PersistedFileChunkSize"' `
+				+ ',"BuildVersion"' `
+				+ ',"ErrorReportingEnabled"' `
+				+ ',"DaysBeforePasswordExpirationToSendEmail"' `
+				+ ',"CanUpgrade"' `
+				+ ',"PasswordChangeMaximumTries"' `
+				+ ',"PasswordChangeEmailAddress"' `
+				+ ',"DisableCaching"' `
+				+ ',"EnableCaching"' `
+				+ ',"BuildVersion"' `
+				+ ',"CanBackupRestoreAsConfiguration"' `
+				+ ',"CanMigrate"' `
+				+ ',"CanRenameOnRestore"' `
+				+ ',"CanSelectForBackup"' `
+				+ ',"CanSelectForRestore"' `
+				+ ',"CanUpgrade"' `
+				+ ',"CEIPEnabled"' `
+				+ ',"DaysBeforePasswordExpirationToSendEmail"' `
+				+ ',"DefaultServiceAccount"' `
+				+ ',"DiagnosticsProviders"' `
+				+ ',"DiskSizeRequired"' `
+				+ ',"DisplayName"' `
+				+ ',"DownloadErrorReportingUpdates"' `
+				+ ',"EncodedFarmId"' `
+				+ ',"ErrorReportingAutomaticUpload"' `
+				+ ',"ErrorReportingEnabled"' `
+				+ ',"Farm"' `
+				+ ',"Id"' `
+				+ ',"IsBackwardsCompatible"' `
+				+ ',"IsPaired"' `
+				+ ',"Name"' `
+				+ ',"NeedsUpgrade"' `
+				+ ',"NeedsUpgradeIncludeChildren"' `
+				+ ',"PairConnectionString"' `
+				+ ',"PasswordChangeEmailAddress"' `
+				+ ',"PasswordChangeGuardTime"' `
+				+ ',"PasswordChangeMaximumTries"' `
+				+ ',"PersistedFileChunkSize"' `
+				+ ',"Products"' `
+				+ ',"ServerDebugFlags"' `
+				+ ',"Servers"' `
+				+ ',"ServiceApplicationProxyGroups"' `
+				+ ',"ServiceProxies"' `
+				+ ',"SiteSubscriptions"' `
+				+ ',"Status"' `
+				+ ',"TimerService"' `
+				+ ',"TraceSessionGuid"' `
+				+ ',"UpgradeContext"' `
+				+ ',"UpgradedPersistedProperties"' `
+				+ ',"UseMinWidthForHtmlPicker"' `
+				+ ',"UserLicensingEnabled"' `
+				+ ',"Version"' `
+				+ ',"XsltTransformTimeOut"'
+			$row | Out-File $logfilename
+		}
+
+	} #begin
+	PROCESS {
+		$counter = 0
+		# Build one wide row of farm properties
+		$row=''
+		$row= '"' + $farm.CanMigrate + '"' `
+		+ ',"' + $farm.PersistedFileChunkSize + '"' `
+		+ ',"' + $farm.BuildVersion + '"' `
+		+ ',"' + $farm.ErrorReportingEnabled + '"' `
+		+ ',"' + $farm.DaysBeforePasswordExpirationToSendEmail + '"' `
+		+ ',"' + $farm.CanUpgrade + '"' `
+		+ ',"' + $farm.PasswordChangeMaximumTries + '"' `
+		+ ',"' + $farm.PasswordChangeEmailAddress + '"' `
+		+ ',"' + $farm.DisableCaching + '"' `
+		+ ',"' + $farm.EnableCaching + '"' `
+		+ ',"' + $farm.BuildVersion + '"' `
+		+ ',"' + $farm.CanBackupRestoreAsConfiguration + '"' `
+		+ ',"' + $farm.CanMigrate + '"' `
+		+ ',"' + $farm.CanRenameOnRestore + '"' `
+		+ ',"' + $farm.CanSelectForBackup + '"' `
+		+ ',"' + $farm.CanSelectForRestore + '"' `
+		+ ',"' + $farm.CanUpgrade + '"' `
+		+ ',"' + $farm.CEIPEnabled + '"' `
+		+ ',"' + $farm.DaysBeforePasswordExpirationToSendEmail + '"' `
+		+ ',"' + $farm.DefaultServiceAccount + '"' `
+		+ ',"' + $farm.DiagnosticsProviders + '"' `
+		+ ',"' + $farm.DiskSizeRequired + '"' `
+		+ ',"' + $farm.DisplayName + '"' `
+		+ ',"' + $farm.DownloadErrorReportingUpdates + '"' `
+		+ ',"' + $farm.EncodedFarmId + '"' `
+		+ ',"' + $farm.ErrorReportingAutomaticUpload + '"' `
+		+ ',"' + $farm.ErrorReportingEnabled + '"' `
+		+ ',"' + $farm.Farm + '"' `
+		+ ',"' + $farm.Id + '"' `
+		+ ',"' + $farm.IsBackwardsCompatible + '"' `
+		+ ',"' + $farm.IsPaired + '"' `
+		+ ',"' + $farm.Name + '"' `
+		+ ',"' + $farm.NeedsUpgrade + '"' `
+		+ ',"' + $farm.NeedsUpgradeIncludeChildren + '"' `
+		+ ',"' + $farm.PairConnectionString + '"' `
+		+ ',"' + $farm.PasswordChangeEmailAddress + '"' `
+		+ ',"' + $farm.PasswordChangeGuardTime + '"' `
+		+ ',"' + $farm.PasswordChangeMaximumTries + '"' `
+		+ ',"' + $farm.PersistedFileChunkSize + '"' `
+		+ ',"' + $farm.Products + '"' `
+		+ ',"' + $farm.ServerDebugFlags + '"' `
+		+ ',"' + $farm.Servers + '"' `
+		+ ',"' + $farm.ServiceApplicationProxyGroups + '"' `
+		+ ',"' + $farm.ServiceProxies + '"' `
+		+ ',"' + $farm.SiteSubscriptions + '"' `
+		+ ',"' + $farm.Status + '"' `
+		+ ',"' + $farm.TimerService + '"' `
+		+ ',"' + $farm.TraceSessionGuid + '"' `
+		+ ',"' + $farm.UpgradeContext + '"' `
+		+ ',"' + $farm.UpgradedPersistedProperties + '"' `
+		+ ',"' + $farm.UseMinWidthForHtmlPicker + '"' `
+		+ ',"' + $farm.UserLicensingEnabled + '"' `
+		+ ',"' + $farm.Version + '"' `
+		+ ',"' + $farm.XsltTransformTimeOut + '"'
+
+		$row | Out-File $logfilename -append
+
+		$counter++
 	} #process
 	END {
 
